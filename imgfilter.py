@@ -12,7 +12,7 @@ from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QWidget, QScrol
 from PySide6.QtCore import Qt, QMargins, QPoint, QRect, QSize, QTimer
 
 
-BUFFER = 65536 * 2
+BUFFER = 65536 * 10
 API = 'https://api.imgur.com/3/image'
 HOME = os.path.expanduser("~")
 HASHDB = os.path.join(HOME, '.imgfilter.json')
