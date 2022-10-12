@@ -1,91 +1,13 @@
 import sys
 import os
 import argparse
-import hashlib
 import glob
-import json
-import pyperclip
-import requests
-from threading import Timer
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QWidget, QScrollArea, QVBoxLayout, QLineEdit, QSizePolicy, QLayout
 from PySide6.QtCore import Qt, QMargins, QPoint, QRect, QSize, QTimer
 
 
-BUFFER = 65536 * 10
-API = 'https://api.imgur.com/3/image'
-HOME = os.path.expanduser("~")
-HASHDB = os.path.join(HOME, '.imgfilter.json')
 DELAY = 300
-
-
-class HashDB:
-    def __init__(self, path):
-        self.path = path
-        if os.path.isfile(self.path):
-            data = open(self.path, 'r')
-            self.data = json.load(data)
-        else:
-            self.data = {}
-
-    def get(self, hash):
-        if hash in self.data:
-            return self.data[hash]
-        else:
-            return False
-
-    def insert(self, hash, link):
-        self.data[hash] = link
-        self.save()
-
-    def save(self):
-        json.dump(self.data, open(self.path, 'w'))
-
-class ImgDB:
-    def __init__(self, client_id):
-        self.client_id = client_id
-        self.params = dict(
-            client_id=self.client_id
-        )
-        self.hashdb = HashDB(HASHDB)
-
-    def link(self, path):
-        hash = self.hash(path)
-        print(f"HASH: {hash}")
-        link = self.hashdb.get(hash)
-        if link == False:
-            print(f"UPLOADING: {path}")
-            link = self.upload(path)
-            if link != False:
-                self.hashdb.insert(hash, link)
-        return link
-  
-    def hash(self, path):
-        md5 = hashlib.md5()
-        with open(path, 'rb') as f:
-            while True:
-                data = f.read(BUFFER)
-                if not data:
-                    break
-                md5.update(data)
-        return md5.hexdigest()
-
-    def upload(self, path):
-        file = open(path, 'rb')
-        files = dict(
-            image=(None, file),
-            name=(None, ''),
-            type=(None, 'file'),
-        )
-        r = requests.post(API, files=files, params=self.params)
-        if (r.status_code == 200):
-            data = json.loads(r.text)
-            if (data['status'] == 200):
-                return data['data']['link']
-            else:
-                return False
-        else:
-            return False
 
 class FlowLayout(QLayout):
     def __init__(self, parent=None):
@@ -177,26 +99,18 @@ class FlowLayout(QLayout):
         return y + line_height - rect.y()
 
 class ClickLabel(QLabel):
-    def __init__(self, imgdb, parent, path):
+    def __init__(self, parent, path):
         super().__init__(parent)
-        self.imgdb = imgdb
         self.path = path
 
     def mousePressEvent(self, event):
-        link = self.imgdb.link(self.path)
-        if (link == False):
-            print('ERROR: failed getting link')
-        else:
-            print(f"LINK: {link}")
-            pyperclip.copy(link)
-            print('Copied link to clipboard.')
+        print(self.path, end='')
         quit(0)
 
 class MainWindow(QMainWindow):
-    def __init__(self, imgdb, path, query=''):
+    def __init__(self, path, query=''):
         super().__init__()
 
-        self.imgdb = imgdb
         self.path = path
         self.query = query
 
@@ -238,7 +152,7 @@ class MainWindow(QMainWindow):
         # Populate grid
         pat = os.path.join(self.path, "**", f"*{self.query}*.png")
         for n, fn in enumerate(glob.glob(pat, root_dir=self.path, recursive=True)):
-            label = ClickLabel(self.imgdb, self.scrollAreaWidgetContents, fn)
+            label = ClickLabel(self.scrollAreaWidgetContents, fn)
             pixmap = QPixmap(fn)
             label.setFixedSize(300,300)
             label.setPixmap(pixmap.scaled(label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
@@ -265,8 +179,7 @@ parser.add_argument('query',
 )
 args = parser.parse_args()
 
-imgdb = ImgDB('54cd5ba3aa93f4e')
 app = QApplication(sys.argv)
-window = MainWindow(imgdb, args.path, args.query)
+window = MainWindow(args.path, args.query)
 window.show()
 app.exec()

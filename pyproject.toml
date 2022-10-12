@@ -4,11 +4,11 @@ build-backend = "flit_core.buildapi"
 
 [project]
 name = "imgfilter"
-version = "0.1.0"
+version = "0.2.0"
 authors = [
   { name="0E9B061F", email="0E9B061F@protonmail.com" },
 ]
-description = "Image selection dialogue"
+description = "Filterable image file selection dialogue"
 readme = "README.md"
 requires-python = ">=3.1"
 classifiers = [

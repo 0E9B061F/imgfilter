@@ -1,1 +1,1 @@
-Select and upload images
+Filterable image file selection dialogue
