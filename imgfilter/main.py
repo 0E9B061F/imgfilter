@@ -1,7 +1,7 @@
 import sys
 import os
-import argparse
 import glob
+import argparse
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QWidget, QScrollArea, QVBoxLayout, QLineEdit, QSizePolicy, QLayout
 from PySide6.QtCore import Qt, QMargins, QPoint, QRect, QSize, QTimer
@@ -163,23 +163,23 @@ class MainWindow(QMainWindow):
         self.scrollArea.setWidget(self.scrollAreaWidgetContents)
         self.centralLayout.addWidget(self.scrollArea)
 
+def execute():
+    parser = argparse.ArgumentParser(description='link a meme')
+    parser.add_argument('path',
+        metavar='PATH',
+        type=str,
+        help='load images here'
+    )
+    parser.add_argument('query',
+        metavar='QUERY',
+        type=str,
+        nargs='?',
+        default='',
+        help='start with a query'
+    )
+    args = parser.parse_args()
 
-parser = argparse.ArgumentParser(description='link a meme')
-parser.add_argument('path',
-    metavar='PATH',
-    type=str,
-    help='load images here'
-)
-parser.add_argument('query',
-    metavar='QUERY',
-    type=str,
-    nargs='?',
-    default='',
-    help='start with a query'
-)
-args = parser.parse_args()
-
-app = QApplication(sys.argv)
-window = MainWindow(args.path, args.query)
-window.show()
-app.exec()
+    app = QApplication(sys.argv)
+    window = MainWindow(args.path, args.query)
+    window.show()
+    app.exec()
