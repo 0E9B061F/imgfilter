@@ -7,7 +7,8 @@ from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QWidget, QScrol
 from PySide6.QtCore import Qt, QMargins, QPoint, QRect, QSize, QTimer
 
 
-DELAY = 300
+DELAY = 250
+THUMB = 300
 
 class FlowLayout(QLayout):
     def __init__(self, parent=None):
@@ -154,7 +155,7 @@ class MainWindow(QMainWindow):
         for n, fn in enumerate(glob.glob(pat, root_dir=self.path, recursive=True)):
             label = ClickLabel(self.scrollAreaWidgetContents, fn)
             pixmap = QPixmap(fn)
-            label.setFixedSize(300,300)
+            label.setFixedSize(THUMB,THUMB)
             label.setPixmap(pixmap.scaled(label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
             label.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
             self.gridLayout.addWidget(label)
@@ -177,9 +178,48 @@ def execute():
         default='',
         help='start with a query'
     )
+    parser.add_argument(
+        '--fg',
+        dest='fg',
+        type=str,
+        nargs='?',
+        default="#9e9fd2",
+        help='Foreground color (hex)',
+    )
+    parser.add_argument(
+        '--bg',
+        dest='bg',
+        type=str,
+        nargs='?',
+        default="#191919",
+        help='Background color (hex)',
+    )
     args = parser.parse_args()
 
     app = QApplication(sys.argv)
+    app.setStyleSheet(f"""
+        QMainWindow, QLineEdit,
+        QScrollArea QWidget,
+        QScrollBar:vertical {{
+            color: {args.fg};
+            background-color: {args.bg};
+        }}
+        QLineEdit {{
+            font-size: 16px;
+            font-weight: bold;
+        }}
+        QLineEdit,
+        QScrollArea {{
+            border: 0;
+        }}
+        QScrollBar::handle:vertical {{
+            background-color: {args.fg};
+        }}
+        QScrollBar::add-line:vertical,
+        QScrollBar::sub-line:vertical {{
+            background-color: {args.bg};
+        }}
+    """)
     window = MainWindow(args.path, args.query)
     window.show()
     app.exec()
