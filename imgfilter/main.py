@@ -199,6 +199,14 @@ def execute():
         default="#191919",
         help='Background color (hex)',
     )
+    parser.add_argument(
+        '--fn',
+        dest='fn',
+        type=str,
+        nargs='?',
+        default="Hack, Terminus, monospace",
+        help='Font family (CSS-style, like "Hack, Terminus, monospace")',
+    )
     args = parser.parse_args()
 
     app = QApplication(sys.argv)
@@ -212,6 +220,7 @@ def execute():
         QLineEdit {{
             font-size: 16px;
             font-weight: bold;
+            font-family: {args.fn};
         }}
         QLineEdit,
         QScrollArea {{
