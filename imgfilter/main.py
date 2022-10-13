@@ -9,6 +9,7 @@ from PySide6.QtCore import Qt, QMargins, QPoint, QRect, QSize, QTimer
 
 DELAY = 250
 THUMB = 300
+LIMIT = 50
 
 class FlowLayout(QLayout):
     def __init__(self, parent=None):
@@ -161,7 +162,7 @@ class MainWindow(QMainWindow):
 
         # Populate grid
         pat = os.path.join(self.path, "**", f"*{self.query}*.png")
-        paths = glob.glob(pat, root_dir=self.path, recursive=True)
+        paths = glob.glob(pat, root_dir=self.path, recursive=True)[0:LIMIT]
         try:
             self.first = paths[0]
         except IndexError:
