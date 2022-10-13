@@ -138,6 +138,10 @@ class MainWindow(QMainWindow):
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Escape:
             exit(0)
+        if event.key() == Qt.Key_Return:
+            if self.first:
+                print(self.first, end='')
+                exit(0)
         event.accept()
 
     def edit(self, s):
@@ -157,7 +161,12 @@ class MainWindow(QMainWindow):
 
         # Populate grid
         pat = os.path.join(self.path, "**", f"*{self.query}*.png")
-        for n, fn in enumerate(glob.glob(pat, root_dir=self.path, recursive=True)):
+        paths = glob.glob(pat, root_dir=self.path, recursive=True)
+        try:
+            self.first = paths[0]
+        except IndexError:
+            self.first = None
+        for n, fn in enumerate(paths):
             label = ClickLabel(self.scrollAreaWidgetContents, fn)
             pixmap = QPixmap(fn)
             label.setFixedSize(THUMB,THUMB)
