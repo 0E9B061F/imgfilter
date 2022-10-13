@@ -135,6 +135,11 @@ class MainWindow(QMainWindow):
 
         self.setCentralWidget(self.central)
 
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Escape:
+            exit(0)
+        event.accept()
+
     def edit(self, s):
         self.query = s
         self.timer.stop()
