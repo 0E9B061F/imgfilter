@@ -225,17 +225,18 @@ class MainWindow(QMainWindow):
         self.headLayout.setContentsMargins(0, 0, 0, 0)
 
         # Create and add prompt to header
-        self.prompt = QLabel(self.head)
-        self.prompt.setText('DOROHEDORO')
-        self.prompt.setStyleSheet(
-            f"background-color: {self.args.fg};"
-            f"color: {self.args.hilite};"
-            f"font-size: 16px;"
-            f"font-weight: bold;"
-            f"font-family: {args.fn};"
-            "padding-left: 5px;"
-        )
-        self.headLayout.addWidget(self.prompt)
+        if len(args.prompt) > 0:
+            self.prompt = QLabel(self.head)
+            self.prompt.setText(args.prompt)
+            self.prompt.setStyleSheet(
+                f"background-color: {self.args.fg};"
+                f"color: {self.args.hilite};"
+                f"font-size: 16px;"
+                f"font-weight: bold;"
+                f"font-family: {args.fn};"
+                "padding-left: 5px;"
+            )
+            self.headLayout.addWidget(self.prompt)
 
         # Create and add line input to header
         self.lineEdit = QLineEdit(self.central)
@@ -341,6 +342,14 @@ def execute():
         nargs='?',
         default="Hack, Terminus, monospace",
         help='Font family (CSS-style, like "Hack, Terminus, monospace")',
+    )
+    parser.add_argument(
+        '-p',
+        dest='prompt',
+        type=str,
+        nargs='?',
+        default="",
+        help='Prompt text to display',
     )
     args = parser.parse_args()
 
