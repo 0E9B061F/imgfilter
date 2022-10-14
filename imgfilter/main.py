@@ -2,18 +2,36 @@ import sys
 import os
 import glob
 import argparse
-from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QWidget, QScrollArea, QVBoxLayout, QLineEdit, QSizePolicy, QLayout
+import math
+from PySide6.QtGui import QPixmap, QColor
+from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QWidget, QScrollArea, QVBoxLayout, QHBoxLayout, QLineEdit, QSizePolicy, QLayout
 from PySide6.QtCore import Qt, QMargins, QPoint, QRect, QSize, QTimer
 
 
 DELAY = 250
-THUMB = 300
 LIMIT = 50
+MINTH = 50
+THUMB = 300
+GAP = 3
+INSET = 10
 
-class FlowLayout(QLayout):
+class Contents(QWidget):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.selected = None
+
+    def select(self, tile):
+        if self.selected:
+            self.selected.deselect()
+        self.selected = tile
+        self.selected.select()
+
+
+class TiledLayout(QLayout):
     def __init__(self, parent=None):
         super().__init__(parent)
+
+        self.setSpacing(GAP)
 
         if parent is not None:
             self.setContentsMargins(QMargins(0, 0, 0, 0))
@@ -50,12 +68,16 @@ class FlowLayout(QLayout):
         return True
 
     def heightForWidth(self, width):
-        height = self._do_layout(QRect(0, 0, width, 0), True)
-        return height
+        gap = self.spacing()
+        th = self.thumb(width)
+        xc = self._calcXC(width, th, gap)
+        c = len(self._item_list)
+        yc = math.ceil(c / xc)
+        return (yc * th) + ((yc - 1) * gap)
 
     def setGeometry(self, rect):
-        super(FlowLayout, self).setGeometry(rect)
-        self._do_layout(rect, False)
+        super(TiledLayout, self).setGeometry(rect)
+        self._do_layout(rect)
 
     def sizeHint(self):
         return self.minimumSize()
@@ -69,64 +91,160 @@ class FlowLayout(QLayout):
         size += QSize(2 * self.contentsMargins().top(), 2 * self.contentsMargins().top())
         return size
 
-    def _do_layout(self, rect, test_only):
-        x = rect.x()
+    def thumb(self, width):
+        gap = self.spacing()
+        return min((width - gap) / 2, THUMB)
+
+    def _calcXC(self, width, th, gap):
+        used = th
+        n = 1
+        if used >= width:
+            return n
+        next = used + gap + th
+        while next <= width:
+            used = next
+            n += 1
+            next = used + gap + th
+        return n
+
+    def _do_layout(self, rect):
+        w = rect.width()
+        th = self.thumb(w)
+        gap = self.spacing()
+        xc = self._calcXC(w, th, gap)
+        used = (xc * th) + ((xc - 1) * gap)
+        waste = w - used
+        margin = waste / 2
+
+        x = rect.x() + margin
         y = rect.y()
-        line_height = 0
-        spacing = self.spacing()
+
+        tx = 0
+        ty = 0
 
         for item in self._item_list:
-            style = item.widget().style()
-            layout_spacing_x = style.layoutSpacing(
-                QSizePolicy.PushButton, QSizePolicy.PushButton, Qt.Horizontal
-            )
-            layout_spacing_y = style.layoutSpacing(
-                QSizePolicy.PushButton, QSizePolicy.PushButton, Qt.Vertical
-            )
-            space_x = spacing + layout_spacing_x
-            space_y = spacing + layout_spacing_y
-            next_x = x + item.sizeHint().width() + space_x
-            if next_x - space_x > rect.right() and line_height > 0:
-                x = rect.x()
-                y = y + line_height + space_y
-                next_x = x + item.sizeHint().width() + space_x
-                line_height = 0
+            item.setGeometry(QRect(x, y, th, th))
+            tx += 1
+            if tx >= xc:
+                tx = 0
+                ty += 1
+                x = rect.x() + margin
+                y = y + gap + th
+            else:
+                x = x + gap + th
 
-            if not test_only:
-                item.setGeometry(QRect(QPoint(x, y), item.sizeHint()))
+class Label(QLabel):
 
-            x = next_x
-            line_height = max(line_height, item.sizeHint().height())
+    def __init__(self, parent):
+        super(Label, self).__init__(parent)
+        self.pixmap_width: int = 1
+        self.pixmapHeight: int = 1
 
-        return y + line_height - rect.y()
+    def setPixmap(self, pm: QPixmap) -> None:
+        self.pixmap_width = pm.width()
+        self.pixmapHeight = pm.height()
 
-class ClickLabel(QLabel):
-    def __init__(self, parent, path):
+        self.updateMargins()
+        super(Label, self).setPixmap(pm)
+
+    def resizeEvent(self, a0) -> None:
+        self.updateMargins()
+        super(Label, self).resizeEvent(a0)
+
+    def updateMargins(self):
+        if self.pixmap() is None:
+            return
+        pixmapWidth = self.pixmap().width()
+        pixmapHeight = self.pixmap().height()
+        if pixmapWidth <= 0 or pixmapHeight <= 0:
+            return
+        w, h = self.width(), self.height()
+        if w <= 0 or h <= 0:
+            return
+
+        if w * pixmapHeight > h * pixmapWidth:
+            m = int((w - (pixmapWidth * h / pixmapHeight)) / 2)
+            self.setContentsMargins(m, 0, m, 0)
+        else:
+            m = int((h - (pixmapHeight * w / pixmapWidth)) / 2)
+            self.setContentsMargins(0, m, 0, m)
+
+class Tile(Label):
+    def __init__(self, parent, args, path, original):
         super().__init__(parent)
+        self.contents = parent
+        self.args = args
         self.path = path
+        self.original = original
 
     def mousePressEvent(self, event):
         print(self.path, end='')
         quit(0)
 
+    def enterEvent(self, event):
+        self.contents.select(self)
+
+    def select(self):
+        self.setStyleSheet(f"background-color: {self.args.fg}")
+
+    def deselect(self):
+        self.setStyleSheet(f"background-color: {self.args.matte}")
+
+    def scaleImg(self):
+        self.setPixmap(self.original.scaled(
+            self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+
 class MainWindow(QMainWindow):
-    def __init__(self, path, query=''):
+    def __init__(self, args):
         super().__init__()
 
-        self.path = path
-        self.query = query
+        #self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.BypassWindowManagerHint)
+
+        self.args = args
+
+        self.path = args.path
+        self.query = args.query
 
         self.setLayoutDirection(Qt.LeftToRight)
 
+        self.setContentsMargins(0,0,0,0)
+        self.layout().setContentsMargins(0, 0, 0, 0)
+        self.layout().setSpacing(0)
+
         # Main widget and its layout
         self.central = QWidget(self)
+        self.central.setContentsMargins(0, 0, 0, 0)
         self.centralLayout = QVBoxLayout(self.central)
+        self.centralLayout.setSpacing(0)
+        self.centralLayout.setContentsMargins(0,0,0,0)
 
-        # Create and add line input
+        # Create header widget
+        self.head = QWidget(self)
+        self.headLayout = QHBoxLayout(self.head)
+        self.headLayout.setSpacing(0)
+        self.headLayout.setContentsMargins(0, 0, 0, 0)
+
+        # Create and add prompt to header
+        self.prompt = QLabel(self.head)
+        self.prompt.setText('DOROHEDORO')
+        self.prompt.setStyleSheet(
+            f"background-color: {self.args.fg};"
+            f"color: {self.args.hilite};"
+            f"font-size: 16px;"
+            f"font-weight: bold;"
+            f"font-family: {args.fn};"
+            "padding-left: 5px;"
+        )
+        self.headLayout.addWidget(self.prompt)
+
+        # Create and add line input to header
         self.lineEdit = QLineEdit(self.central)
         self.lineEdit.insert(self.query)
         self.lineEdit.textChanged[str].connect(self.edit)
-        self.centralLayout.addWidget(self.lineEdit)
+        self.headLayout.addWidget(self.lineEdit)
+
+        # Add head to central layout
+        self.centralLayout.addWidget(self.head)
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.populate)
@@ -157,8 +275,8 @@ class MainWindow(QMainWindow):
         # Create scroll area and grid
         self.scrollArea = QScrollArea(self.central)
         self.scrollArea.setWidgetResizable(True)
-        self.scrollAreaWidgetContents = QWidget()
-        self.gridLayout = FlowLayout(self.scrollAreaWidgetContents)
+        self.scrollAreaWidgetContents = Contents(self.scrollArea)
+        self.gridLayout = TiledLayout(self.scrollAreaWidgetContents)
 
         # Populate grid
         pat = os.path.join(self.path, "**", f"*{self.query}*.png")
@@ -168,12 +286,19 @@ class MainWindow(QMainWindow):
         except IndexError:
             self.first = None
         for n, fn in enumerate(paths):
-            label = ClickLabel(self.scrollAreaWidgetContents, fn)
             pixmap = QPixmap(fn)
-            label.setFixedSize(THUMB,THUMB)
-            label.setPixmap(pixmap.scaled(label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            label = Tile(self.scrollAreaWidgetContents, self.args, fn, pixmap)
+            # label.setFixedSize(THUMB,THUMB)
+            label.setScaledContents(True)
+            label.setMinimumSize(MINTH,MINTH)
+            label.setMaximumSize(THUMB,THUMB)
+            label.setPixmap(pixmap.scaled(THUMB,THUMB, Qt.KeepAspectRatio, Qt.SmoothTransformation))
             label.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+            label.setMargin(INSET)
+            label.setStyleSheet(f"background-color: {self.args.matte}")
             self.gridLayout.addWidget(label)
+            if not self.scrollAreaWidgetContents.selected:
+                self.scrollAreaWidgetContents.select(label)
 
          # Add scroll area
         self.scrollArea.setWidget(self.scrollAreaWidgetContents)
@@ -198,7 +323,7 @@ def execute():
         dest='fg',
         type=str,
         nargs='?',
-        default="#9e9fd2",
+        default="#5e6fa0",
         help='Foreground color (hex)',
     )
     parser.add_argument(
@@ -219,6 +344,15 @@ def execute():
     )
     args = parser.parse_args()
 
+    args.matte = QColor(args.bg).lighter(160).name(QColor.HexRgb)
+    fg = QColor(args.fg)
+    luma = ((0.299 * fg.red()) + (0.587 * fg.green()) + (0.114 * fg.blue())) / 255
+    if luma > 0.5:
+        args.hilite = "#000000"
+    else:
+        args.hilite = "#e0e0e0"
+
+
     app = QApplication(sys.argv)
     app.setStyleSheet(f"""
         QMainWindow, QLineEdit,
@@ -231,6 +365,7 @@ def execute():
             font-size: 16px;
             font-weight: bold;
             font-family: {args.fn};
+            padding-left: 5px;
         }}
         QLineEdit,
         QScrollArea {{
@@ -243,7 +378,16 @@ def execute():
         QScrollBar::sub-line:vertical {{
             background-color: {args.bg};
         }}
+        Tile {{
+            padding: 20px;
+            background-color: {args.matte};
+        }}
+        QMainWindow {{
+            margin: 0;
+            padding: 0;
+        }}
     """)
-    window = MainWindow(args.path, args.query)
+    window = MainWindow(args)
     window.show()
+    #window.activateWindow()
     app.exec()
