@@ -1,3 +1,3 @@
 Filterable image file selection dialogue
 
-![Example of imgfilter in use][example.gif]
+![Example of imgfilter in use](example.gif)
