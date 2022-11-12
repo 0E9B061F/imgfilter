@@ -1,12 +1,11 @@
 import sys
 import os
-import glob
+import re
 import argparse
 import math
 from PySide6.QtGui import QPixmap, QColor
 from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QWidget, QScrollArea, QVBoxLayout, QHBoxLayout, QLineEdit, QSizePolicy, QLayout
 from PySide6.QtCore import Qt, QMargins, QPoint, QRect, QSize, QTimer
-
 
 DELAY = 250
 LIMIT = 50
@@ -247,6 +246,8 @@ class MainWindow(QMainWindow):
         # Add head to central layout
         self.centralLayout.addWidget(self.head)
 
+        self.paths = self.scandir()
+
         self.timer = QTimer()
         self.timer.timeout.connect(self.populate)
 
@@ -269,6 +270,18 @@ class MainWindow(QMainWindow):
         self.timer.stop()
         self.timer.start(DELAY)
 
+    def scandir(self):
+        found = []
+        for root, dirs, files in os.walk(self.path):
+            found = found + [os.path.join(root, f) for f in files if f.endswith(('.png', '.gif', '.jpg', '.jpeg', '.webp'))]
+        return found
+
+    def filter(self):
+        if self.query:
+            return [f for f in self.paths if re.search(self.query, f)][0:LIMIT]
+        else:
+            return self.paths[0:LIMIT]
+
     def populate(self):
         self.timer.stop()
         if (self.scrollArea):
@@ -280,8 +293,9 @@ class MainWindow(QMainWindow):
         self.gridLayout = TiledLayout(self.scrollAreaWidgetContents)
 
         # Populate grid
-        pat = os.path.join(self.path, "**", f"*{self.query}*.png")
-        paths = glob.glob(pat, root_dir=self.path, recursive=True)[0:LIMIT]
+        #pat = os.path.join(self.path, "**", f"*{self.query}*")
+        #paths = glob.glob(pat, root_dir=self.path, recursive=True)[0:LIMIT]
+        paths = self.filter()
         try:
             self.first = paths[0]
         except IndexError:
@@ -290,7 +304,7 @@ class MainWindow(QMainWindow):
             pixmap = QPixmap(fn)
             label = Tile(self.scrollAreaWidgetContents, self.args, fn, pixmap)
             # label.setFixedSize(THUMB,THUMB)
-            label.setScaledContents(True)
+            #label.setScaledContents(True)
             label.setMinimumSize(MINTH,MINTH)
             label.setMaximumSize(THUMB,THUMB)
             label.setPixmap(pixmap.scaled(THUMB,THUMB, Qt.KeepAspectRatio, Qt.SmoothTransformation))
